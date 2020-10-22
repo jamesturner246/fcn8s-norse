@@ -138,10 +138,10 @@ class FCN8s(nn.Module):
             #print(out_dense[0][out_dense[0].isnan() + out_dense[0].isinf()])
             #print(out_dense[0][out_dense[0].isnan() + out_dense[0].isinf() + out_dense[0] != 0])
 
-            print(
-                (out_dense[0][out_dense[0] != 0]).shape[0], ' spikes    ',
-                (out_dense[0][out_dense[0].isnan() + out_dense[0].isinf()]).shape[0], ' inf/nan',
-            )
+            #print(
+            #    (out_dense[0][out_dense[0] != 0]).shape[0], ' spikes    ',
+            #    (out_dense[0][out_dense[0].isnan() + out_dense[0].isinf()]).shape[0], ' inf/nan',
+            #)
 
 
 
@@ -177,7 +177,6 @@ class FCN8s(nn.Module):
             #print(state_final.v[0][state_final.v[0].isnan() + state_final.v[0].isinf()])
 
 
-
             #print('')
 
 
@@ -186,17 +185,17 @@ class FCN8s(nn.Module):
         #return state_final.v
 
 
-class VOCSegmentationSpikes(torchvision.datasets.VOCSegmentation):
+class VOCSegmentationNew(torchvision.datasets.VOCSegmentation):
 
     def __init__(self, *args, **kwargs):
-        super(VOCSegmentationSpikes, self).__init__(*args, **kwargs)
+        super(VOCSegmentationNew, self).__init__(*args, **kwargs)
 
     def __len__(self):
-        length = super(VOCSegmentationSpikes, self).__len__()
+        length = super(VOCSegmentationNew, self).__len__()
         return length
 
     def __getitem__(self, i):
-        data, labels = super(VOCSegmentationSpikes, self).__getitem__(i)
+        data, labels = super(VOCSegmentationNew, self).__getitem__(i)
         labels = (labels * 256).long()
         return data, labels
 
@@ -220,7 +219,8 @@ def main():
     void_label = 256
 
     #sim_steps = 10
-    sim_steps = 25
+    #sim_steps = 25
+    sim_steps = 30
     epochs = 10
     learn_rate = 1e-4
     #learn_rate = 1e-5
@@ -228,16 +228,16 @@ def main():
     batch_size = 1
     dev = 'cuda'
 
-    #f_max = 100
+    #f_max = 100.0
     #dt = 0.001
     #f_max = 1.0
     #dt = 1.0
-    f_max = 0.0
+    f_max = 100.0
     dt = 0.1
 
     transform = transforms.Compose([transforms.Resize((height, width)), transforms.ToTensor()])
-    voc11seg_data = VOCSegmentationSpikes('./voc11seg', year='2011', image_set='train', download=True,
-                                          transform=transform, target_transform=transform)
+    voc11seg_data = VOCSegmentationNew('./voc11seg', year='2011', image_set='train', download=True,
+                                       transform=transform, target_transform=transform)
     loader = torch.utils.data.DataLoader(voc11seg_data, batch_size=batch_size, shuffle=True,
                                          pin_memory=True, num_workers=0)
     encoder = PoissonEncoder(sim_steps, f_max=f_max, dt=dt)
@@ -258,7 +258,7 @@ def main():
             # print('y      ', y.shape)
 
             if i % 10 == 0:
-                print('step: ', i, ', loss: ', loss.item())
+                print('iteration: ', i, ', loss: ', loss.item())
 
             optimiser.zero_grad()
             loss.backward()
