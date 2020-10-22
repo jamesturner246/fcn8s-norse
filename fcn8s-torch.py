@@ -155,11 +155,11 @@ def main():
     width = 256
     void_label = 256
 
-    epochs = 10
+    epochs = 500
     #learn_rate = 1e-4
     learn_rate = 3e-5
-    batch_size = 1
-    #batch_size = 32
+    #batch_size = 1
+    batch_size = 32
     dev = 'cuda'
 
     transform = transforms.Compose([transforms.Resize((height, width)), transforms.ToTensor()])
@@ -168,53 +168,47 @@ def main():
     loader = torch.utils.data.DataLoader(voc11seg_data, batch_size=batch_size, shuffle=True,
                                          pin_memory=True, num_workers=0)
 
+    y_count = torch.zeros(n_class, dtype=torch.long)
+    for _, y in loader:
+        l, c = y.unique(return_counts=True)
+        for label, count in zip(l, c):
+            if label != void_label:
+                y_count[label] += count
+
+    y_weights = torch.true_divide(y_count.sum(), y_count).to(dev)
+
+    print('y_count')
+    print(y_count)
+    print('y_weights')
+    print(y_weights)
+
     model = FCN8s(n_class, height, width).to(dev)
     optimiser = torch.optim.Adam(model.parameters(), lr=learn_rate)
-    loss_fn = torch.nn.CrossEntropyLoss(ignore_index=void_label)
-
-
-    y_count = torch.zeros(n_class, dtype=torch.int)
-    for _, y in loader:
-
-        u = y.unique(return_counts=True)
-        print(u)
-        exit(0)
-
+    loss_fn = torch.nn.CrossEntropyLoss(weight=y_weights, ignore_index=void_label)
 
     for epoch in range(epochs):
 
         for i, (x, y) in enumerate(loader):
-
-
-            print(y.unique())
-
 
             x = x.to(dev)
             y = y[:, 0, :, :].to(dev)
             y_pred = model(x)
             loss = loss_fn(y_pred, y)
 
-            print('y_pred ', y_pred.shape)
-            print('y      ', y.shape)
-
-            if i % 10 == 0:
-                print('iteration: ', i, ', loss: ', loss.item())
-
             optimiser.zero_grad()
             loss.backward()
             optimiser.step()
 
-            #exit(0)
+            if i % 10 == 0:
+                print('iteration: ', i, ', loss: ', loss.item())
 
             if i % 250 == 0:
-
-                #print(y_pred[0].shape)
-                #print(y_pred[0, 19][y_pred[0, 19] > 0])
-                #print(y_pred[0, 20][y_pred[0, 20] > 0])
-                #print(y_pred[0][y_pred[0] > 0])
-
-                compare(y_pred[0].cpu().argmax(dim=0), y[0].cpu(), void_label)
+                #compare(y_pred[0].cpu().argmax(dim=0), y[0].cpu(), void_label)
                 pass
+
+            if epoch % 10 == 0 and i == 0:
+                print('epoch: ', epoch, ', loss: ', loss.item())
+                compare(y_pred[0].cpu().argmax(dim=0), y[0].cpu(), void_label)
 
 
 if __name__ == '__main__':

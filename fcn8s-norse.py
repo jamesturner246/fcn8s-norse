@@ -218,14 +218,12 @@ def main():
     width = 256
     void_label = 256
 
-    #sim_steps = 10
-    #sim_steps = 25
     sim_steps = 30
     epochs = 10
-    learn_rate = 1e-4
-    #learn_rate = 1e-5
-    #batch_size = 8
+    #learn_rate = 1e-4
+    learn_rate = 3e-5
     batch_size = 1
+    #batch_size = 8
     dev = 'cuda'
 
     #f_max = 100.0
@@ -240,10 +238,25 @@ def main():
                                        transform=transform, target_transform=transform)
     loader = torch.utils.data.DataLoader(voc11seg_data, batch_size=batch_size, shuffle=True,
                                          pin_memory=True, num_workers=0)
+
+    y_count = torch.zeros(n_class, dtype=torch.long)
+    for _, y in loader:
+        l, c = y.unique(return_counts=True)
+        for label, count in zip(l, c):
+            if label != void_label:
+                y_count[label] += count
+
+    y_weights = torch.true_divide(y_count.sum(), y_count).to(dev)
+
+    print('y_count')
+    print(y_count)
+    print('y_weights')
+    print(y_weights)
+
     encoder = PoissonEncoder(sim_steps, f_max=f_max, dt=dt)
     model = FCN8s(n_class, height, width, dt=dt).to(dev)
     optimiser = torch.optim.Adam(model.parameters(), lr=learn_rate)
-    loss_fn = torch.nn.CrossEntropyLoss(ignore_index=void_label)
+    loss_fn = torch.nn.CrossEntropyLoss(weights=y_weights, ignore_index=void_label)
 
     for epoch in range(epochs):
 
