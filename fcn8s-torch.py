@@ -19,68 +19,68 @@ class FCN8s(nn.Module):
 
         # block 1
         self.block1 = nn.Sequential(
-            nn.Conv2d(3, 64, 3, padding=1),
+            nn.Conv2d(3, 64, 3, padding=1, bias=False),
             nn.ReLU(inplace=True),
-            nn.Conv2d(64, 64, 3, padding=1),
+            nn.Conv2d(64, 64, 3, padding=1, bias=False),
             nn.ReLU(inplace=True),
             nn.AvgPool2d(2, stride=2, ceil_mode=True),  # 1/2
         )
 
         # block 2
         self.block2 = nn.Sequential(
-            nn.Conv2d(64, 128, 3, padding=1),
+            nn.Conv2d(64, 128, 3, padding=1, bias=False),
             nn.ReLU(inplace=True),
-            nn.Conv2d(128, 128, 3, padding=1),
+            nn.Conv2d(128, 128, 3, padding=1, bias=False),
             nn.ReLU(inplace=True),
             nn.AvgPool2d(2, stride=2, ceil_mode=True),  # 1/4
         )
 
         # block 3
         self.block3 = nn.Sequential(
-            nn.Conv2d(128, 256, 3, padding=1),
+            nn.Conv2d(128, 256, 3, padding=1, bias=False),
             nn.ReLU(inplace=True),
-            nn.Conv2d(256, 256, 3, padding=1),
+            nn.Conv2d(256, 256, 3, padding=1, bias=False),
             nn.ReLU(inplace=True),
-            nn.Conv2d(256, 256, 3, padding=1),
+            nn.Conv2d(256, 256, 3, padding=1, bias=False),
             nn.ReLU(inplace=True),
             nn.AvgPool2d(2, stride=2, ceil_mode=True),  # 1/8
         )
 
         # block 4
         self.block4 = nn.Sequential(
-            nn.Conv2d(256, 512, 3, padding=1),
+            nn.Conv2d(256, 512, 3, padding=1, bias=False),
             nn.ReLU(inplace=True),
-            nn.Conv2d(512, 512, 3, padding=1),
+            nn.Conv2d(512, 512, 3, padding=1, bias=False),
             nn.ReLU(inplace=True),
-            nn.Conv2d(512, 512, 3, padding=1),
+            nn.Conv2d(512, 512, 3, padding=1, bias=False),
             nn.ReLU(inplace=True),
             nn.AvgPool2d(2, stride=2, ceil_mode=True),  # 1/16
         )
 
         # block 5
         self.block5 = nn.Sequential(
-            nn.Conv2d(512, 512, 3, padding=1),
+            nn.Conv2d(512, 512, 3, padding=1, bias=False),
             nn.ReLU(inplace=True),
-            nn.Conv2d(512, 512, 3, padding=1),
+            nn.Conv2d(512, 512, 3, padding=1, bias=False),
             nn.ReLU(inplace=True),
-            nn.Conv2d(512, 512, 3, padding=1),
+            nn.Conv2d(512, 512, 3, padding=1, bias=False),
             nn.ReLU(inplace=True),
             nn.AvgPool2d(2, stride=2, ceil_mode=True),  # 1/32
         )
 
         # dense
         self.dense = nn.Sequential(
-            nn.Conv2d(512, 4096, 7, padding=3),
+            nn.Conv2d(512, 4096, 7, padding=3, bias=False),
             nn.ReLU(inplace=True),
             #nn.Dropout2d(),
-            nn.Conv2d(4096, 4096, 1),
+            nn.Conv2d(4096, 4096, 1, bias=False),
             nn.ReLU(inplace=True),
             #nn.Dropout2d(),
         )
 
-        self.score_block3 = nn.Conv2d(256, n_class, 1)
-        self.score_block4 = nn.Conv2d(512, n_class, 1)
-        self.score_dense = nn.Conv2d(4096, n_class, 1)
+        self.score_block3 = nn.Conv2d(256, n_class, 1, bias=False)
+        self.score_block4 = nn.Conv2d(512, n_class, 1, bias=False)
+        self.score_dense = nn.Conv2d(4096, n_class, 1, bias=False)
 
         self.upscore_2 = nn.ConvTranspose2d(n_class, n_class, 4, stride=2, padding=1, bias=False)
         self.upscore_block4 = nn.ConvTranspose2d(n_class, n_class, 4, stride=2, padding=1, bias=False)
@@ -98,23 +98,24 @@ class FCN8s(nn.Module):
 
 
 
-        # ####### WITH FEATURE FUSION
-        # out_score_block3 = self.score_block3(out_block3)  # 1/8
-        # out_score_block4 = self.score_block4(out_block4)  # 1/16
-        # out_score_dense = self.score_dense(out_dense)  # 1/32
-
-        # out_upscore_2 = self.upscore_2(out_score_dense)  # 1/16
-        # out_upscore_block4 = self.upscore_block4(out_score_block4 + out_upscore_2)  # 1/8
-        # out_upscore_8 = self.upscore_8(out_score_block3 + out_upscore_block4)  # 1/1
-
-
-        ####### WITHOUT FEATURE FUSION
+        ####### WITH FEATURE FUSION
+        out_score_block3 = self.score_block3(out_block3)  # 1/8
+        out_score_block4 = self.score_block4(out_block4)  # 1/16
         out_score_dense = self.score_dense(out_dense)  # 1/32
 
         out_upscore_2 = self.upscore_2(out_score_dense)  # 1/16
-        out_upscore_block4 = self.upscore_block4(out_upscore_2)  # 1/8
-        out_upscore_8 = self.upscore_8(out_upscore_block4)  # 1/1
+        out_upscore_block4 = self.upscore_block4(out_score_block4 + out_upscore_2)  # 1/8
+        out_upscore_8 = self.upscore_8(out_score_block3 + out_upscore_block4)  # 1/1
         #######
+
+
+        # ####### WITHOUT FEATURE FUSION
+        # out_score_dense = self.score_dense(out_dense)  # 1/32
+
+        # out_upscore_2 = self.upscore_2(out_score_dense)  # 1/16
+        # out_upscore_block4 = self.upscore_block4(out_upscore_2)  # 1/8
+        # out_upscore_8 = self.upscore_8(out_upscore_block4)  # 1/1
+        # #######
 
 
         out_final = out_upscore_8
@@ -175,12 +176,8 @@ def main():
             if label != void_label:
                 y_count[label] += count
 
+    # inverse frequency class weighting
     y_weights = torch.true_divide(y_count.sum(), y_count).to(dev)
-
-    print('y_count')
-    print(y_count)
-    print('y_weights')
-    print(y_weights)
 
     model = FCN8s(n_class, height, width).to(dev)
     optimiser = torch.optim.Adam(model.parameters(), lr=learn_rate)
@@ -201,10 +198,7 @@ def main():
 
             if i % 10 == 0:
                 print('iteration: ', i, ', loss: ', loss.item())
-
-            if i % 250 == 0:
-                #compare(y_pred[0].cpu().argmax(dim=0), y[0].cpu(), void_label)
-                pass
+            #     compare(y_pred[0].cpu().argmax(dim=0), y[0].cpu(), void_label)
 
             if epoch % 10 == 0 and i == 0:
                 print('epoch: ', epoch, ', loss: ', loss.item())

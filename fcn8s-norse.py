@@ -29,68 +29,68 @@ class FCN8s(nn.Module):
 
         # block 1
         self.block1 = SequentialState(
-            nn.Conv2d(3, 64, 3, padding=1),
+            nn.Conv2d(3, 64, 3, padding=1, bias=False),
             LIFFeedForwardCell(p=LIFParameters(method=method, alpha=alpha), dt=dt),
-            nn.Conv2d(64, 64, 3, padding=1),
+            nn.Conv2d(64, 64, 3, padding=1, bias=False),
             LIFFeedForwardCell(p=LIFParameters(method=method, alpha=alpha), dt=dt),
             nn.AvgPool2d(2, stride=2, ceil_mode=True),  # 1/2
         )
 
         # block 2
         self.block2 = SequentialState(
-            nn.Conv2d(64, 128, 3, padding=1),
+            nn.Conv2d(64, 128, 3, padding=1, bias=False),
             LIFFeedForwardCell(p=LIFParameters(method=method, alpha=alpha), dt=dt),
-            nn.Conv2d(128, 128, 3, padding=1),
+            nn.Conv2d(128, 128, 3, padding=1, bias=False),
             LIFFeedForwardCell(p=LIFParameters(method=method, alpha=alpha), dt=dt),
             nn.AvgPool2d(2, stride=2, ceil_mode=True),  # 1/4
         )
 
         # block 3
         self.block3 = SequentialState(
-            nn.Conv2d(128, 256, 3, padding=1),
+            nn.Conv2d(128, 256, 3, padding=1, bias=False),
             LIFFeedForwardCell(p=LIFParameters(method=method, alpha=alpha), dt=dt),
-            nn.Conv2d(256, 256, 3, padding=1),
+            nn.Conv2d(256, 256, 3, padding=1, bias=False),
             LIFFeedForwardCell(p=LIFParameters(method=method, alpha=alpha), dt=dt),
-            nn.Conv2d(256, 256, 3, padding=1),
+            nn.Conv2d(256, 256, 3, padding=1, bias=False),
             LIFFeedForwardCell(p=LIFParameters(method=method, alpha=alpha), dt=dt),
             nn.AvgPool2d(2, stride=2, ceil_mode=True),  # 1/8
         )
 
         # block 4
         self.block4 = SequentialState(
-            nn.Conv2d(256, 512, 3, padding=1),
+            nn.Conv2d(256, 512, 3, padding=1, bias=False),
             LIFFeedForwardCell(p=LIFParameters(method=method, alpha=alpha), dt=dt),
-            nn.Conv2d(512, 512, 3, padding=1),
+            nn.Conv2d(512, 512, 3, padding=1, bias=False),
             LIFFeedForwardCell(p=LIFParameters(method=method, alpha=alpha), dt=dt),
-            nn.Conv2d(512, 512, 3, padding=1),
+            nn.Conv2d(512, 512, 3, padding=1, bias=False),
             LIFFeedForwardCell(p=LIFParameters(method=method, alpha=alpha), dt=dt),
             nn.AvgPool2d(2, stride=2, ceil_mode=True),  # 1/16
         )
 
         # block 5
         self.block5 = SequentialState(
-            nn.Conv2d(512, 512, 3, padding=1),
+            nn.Conv2d(512, 512, 3, padding=1, bias=False),
             LIFFeedForwardCell(p=LIFParameters(method=method, alpha=alpha), dt=dt),
-            nn.Conv2d(512, 512, 3, padding=1),
+            nn.Conv2d(512, 512, 3, padding=1, bias=False),
             LIFFeedForwardCell(p=LIFParameters(method=method, alpha=alpha), dt=dt),
-            nn.Conv2d(512, 512, 3, padding=1),
+            nn.Conv2d(512, 512, 3, padding=1, bias=False),
             LIFFeedForwardCell(p=LIFParameters(method=method, alpha=alpha), dt=dt),
             nn.AvgPool2d(2, stride=2, ceil_mode=True),  # 1/32
         )
 
         # dense
         self.dense = SequentialState(
-            nn.Conv2d(512, 4096, 7, padding=3),
+            nn.Conv2d(512, 4096, 7, padding=3, bias=False),
             LIFFeedForwardCell(p=LIFParameters(method=method, alpha=alpha), dt=dt),
             #nn.Dropout2d(),
-            nn.Conv2d(4096, 4096, 1),
+            nn.Conv2d(4096, 4096, 1, bias=False),
             LIFFeedForwardCell(p=LIFParameters(method=method, alpha=alpha), dt=dt),
             #nn.Dropout2d(),
         )
 
-        self.score_block3 = nn.Conv2d(256, n_class, 1)
-        self.score_block4 = nn.Conv2d(512, n_class, 1)
-        self.score_dense = nn.Conv2d(4096, n_class, 1)
+        self.score_block3 = nn.Conv2d(256, n_class, 1, bias=False)
+        self.score_block4 = nn.Conv2d(512, n_class, 1, bias=False)
+        self.score_dense = nn.Conv2d(4096, n_class, 1, bias=False)
 
         self.upscore_2 = nn.ConvTranspose2d(n_class, n_class, 4, stride=2, padding=1, bias=False)
         self.upscore_block4 = nn.ConvTranspose2d(n_class, n_class, 4, stride=2, padding=1, bias=False)
@@ -124,61 +124,48 @@ class FCN8s(nn.Module):
             out_dense, state_dense = self.dense(out_block5, state_dense)
 
 
-            #print('dense')
 
-            #l = 3
-            #print(state_dense[l].v.shape)
-            #print(state_dense[l].v)
-            #print(state_dense[l].v[0][state_dense[l].v[0] > 0])
-            #print(state_dense[l].v[0][state_dense[l].v[0].isnan() + state_dense[l].v[0].isinf()])
-
-            #print(out_dense.shape)
-            #print(out_dense[0])
-            #print(out_dense[0][out_dense[0] != 0])
-            #print(out_dense[0][out_dense[0].isnan() + out_dense[0].isinf()])
-            #print(out_dense[0][out_dense[0].isnan() + out_dense[0].isinf() + out_dense[0] != 0])
-
-            #print(
-            #    (out_dense[0][out_dense[0] != 0]).shape[0], ' spikes    ',
-            #    (out_dense[0][out_dense[0].isnan() + out_dense[0].isinf()]).shape[0], ' inf/nan',
-            #)
-
-
-
-
-            # ####### WITH FEATURE FUSION
-            # out_score_block3 = self.score_block3(out_block3)  # 1/8
-            # out_score_block4 = self.score_block4(out_block4)  # 1/16
-            # out_score_dense = self.score_dense(out_dense)  # 1/32
-
-            # out_upscore_2 = self.upscore_2(out_score_dense)  # 1/16
-            # out_upscore_block4 = self.upscore_block4(out_score_block4 + out_upscore_2)  # 1/8
-            # out_upscore_8 = self.upscore_8(out_score_block3 + out_upscore_block4)  # 1/1
-
-
-            ####### WITHOUT FEATURE FUSION
+            ####### WITH FEATURE FUSION
+            out_score_block3 = self.score_block3(out_block3)  # 1/8
+            out_score_block4 = self.score_block4(out_block4)  # 1/16
             out_score_dense = self.score_dense(out_dense)  # 1/32
 
             out_upscore_2 = self.upscore_2(out_score_dense)  # 1/16
-            out_upscore_block4 = self.upscore_block4(out_upscore_2)  # 1/8
-            out_upscore_8 = self.upscore_8(out_upscore_block4)  # 1/1
+            out_upscore_block4 = self.upscore_block4(out_score_block4 + out_upscore_2)  # 1/8
+            out_upscore_8 = self.upscore_8(out_score_block3 + out_upscore_block4)  # 1/1
             #######
 
+
+            # ####### WITHOUT FEATURE FUSION
+            # out_score_dense = self.score_dense(out_dense)  # 1/32
+
+            # out_upscore_2 = self.upscore_2(out_score_dense)  # 1/16
+            # out_upscore_block4 = self.upscore_block4(out_upscore_2)  # 1/8
+            # out_upscore_8 = self.upscore_8(out_upscore_block4)  # 1/1
+            # #######
+
+
+
+            # out = out_dense
+            # print(out[out != 0].shape)
+            # print(out[out.isnan() + out.isinf()].shape)
+            # if (out[out.isnan() + out.isinf()] != 0).any():
+            #     print(out[out.isnan() + out.isinf()])
+            #     print(np.unique(out[out.isnan() + out.isinf()].cpu().detach()))
+            # print()
 
 
             out_final, state_final = self.final(out_upscore_8, state_final)
 
-            #print('final')
-
-            #print(state_final.v.shape)
-            #print(np.unique(state_final.v[0].cpu().detach()))
-            #print(state_final.v[0])
-            #print(state_final.v[0][state_final.v[0] > 0])
-            #print(state_final.v[0][state_final.v[0].isnan() + state_final.v[0].isinf()])
 
 
-            #print('')
-
+        # out = out_final
+        # print(out[out != 0].shape)
+        # print(out[out.isnan() + out.isinf()].shape)
+        # if (out[out.isnan() + out.isinf()] != 0).any():
+        #     print(out[out.isnan() + out.isinf()])
+        #     print(np.unique(out[out.isnan() + out.isinf()].cpu().detach()))
+        # print()
 
 
         return out_final
@@ -218,8 +205,8 @@ def main():
     width = 256
     void_label = 256
 
-    sim_steps = 30
-    epochs = 10
+    sim_steps = 20
+    epochs = 500
     #learn_rate = 1e-4
     learn_rate = 3e-5
     batch_size = 1
@@ -232,6 +219,8 @@ def main():
     #dt = 1.0
     f_max = 100.0
     dt = 0.1
+    dt = 0.5
+    dt = 1.0
 
     transform = transforms.Compose([transforms.Resize((height, width)), transforms.ToTensor()])
     voc11seg_data = VOCSegmentationNew('./voc11seg', year='2011', image_set='train', download=True,
@@ -246,17 +235,13 @@ def main():
             if label != void_label:
                 y_count[label] += count
 
+    # inverse frequency class weighting
     y_weights = torch.true_divide(y_count.sum(), y_count).to(dev)
-
-    print('y_count')
-    print(y_count)
-    print('y_weights')
-    print(y_weights)
 
     encoder = PoissonEncoder(sim_steps, f_max=f_max, dt=dt)
     model = FCN8s(n_class, height, width, dt=dt).to(dev)
     optimiser = torch.optim.Adam(model.parameters(), lr=learn_rate)
-    loss_fn = torch.nn.CrossEntropyLoss(weights=y_weights, ignore_index=void_label)
+    loss_fn = torch.nn.CrossEntropyLoss(weight=y_weights, ignore_index=void_label)
 
     for epoch in range(epochs):
 
@@ -267,27 +252,17 @@ def main():
             y_pred = model(x)
             loss = loss_fn(y_pred, y)
 
-            # print('y_pred ', y_pred.shape)
-            # print('y      ', y.shape)
-
-            if i % 10 == 0:
-                print('iteration: ', i, ', loss: ', loss.item())
-
             optimiser.zero_grad()
             loss.backward()
             optimiser.step()
 
-            #exit(0)
+            if i % 10 == 0:
+                print('iteration: ', i, ', loss: ', loss.item())
+            #     compare(y_pred[0].cpu().argmax(dim=0), y[0].cpu(), void_label)
 
-            if i % 250 == 0:
-
-                #print(y_pred[0].shape)
-                #print(y_pred[0, 19][y_pred[0, 19] > 0])
-                #print(y_pred[0, 20][y_pred[0, 20] > 0])
-                #print(y_pred[0][y_pred[0] > 0])
-
-                #compare(y_pred[0].cpu().argmax(dim=0), y[0].cpu(), void_label)
-                pass
+            if i == 0:
+                print('epoch: ', epoch, ', loss: ', loss.item())
+                compare(y_pred[0].cpu().argmax(dim=0), y[0].cpu(), void_label)
 
 
 if __name__ == '__main__':
