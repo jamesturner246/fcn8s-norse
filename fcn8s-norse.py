@@ -12,80 +12,107 @@ from norse.torch.functional.lif import LIFParameters
 from norse.torch.module.lif import LIFFeedForwardCell
 from norse.torch.functional.leaky_integrator import LIParameters
 from norse.torch.module.leaky_integrator import LIFeedForwardCell
-from norse.torch.module.leaky_integrator import LICell
 from norse.torch.module.encode import PoissonEncoder
 
 
 class FCN8s(nn.Module):
 
-    def __init__(self, n_class, height, width, dt=0.001, method='super', alpha=100.0, dtype=torch.float):
+    def __init__(self, n_class, height, width, dt=0.001, dtype=torch.float):
         super(FCN8s, self).__init__()
         self.n_class = n_class
         self.height = height
         self.width = width
         self.dt = dt
-        self.method = method
-        self.alpha = alpha
         self.dtype = dtype
+
+        p_lif = LIFParameters(
+
+            # tau_syn_inv=torch.tensor(200.0),
+            # tau_mem_inv=torch.tensor(200.0),
+
+            tau_syn_inv=torch.tensor(12.5),
+            tau_mem_inv=torch.tensor(6.25),
+
+            v_leak=torch.tensor(0.0),
+            v_th=torch.tensor(1.0),
+            v_reset=torch.tensor(0.0),
+
+            method = 'super',
+            #alpha = 0.0,
+            alpha = 100.0,
+
+        )
+
+        p_li = LIParameters(
+
+            # tau_syn_inv=torch.tensor(200.0),
+            # tau_mem_inv=torch.tensor(100.0),
+
+            tau_syn_inv=torch.tensor(12.5),
+            tau_mem_inv=torch.tensor(6.25),
+
+            v_leak=torch.tensor(0.0),
+
+        )
 
         # block 1
         self.block1 = SequentialState(
             nn.Conv2d(3, 64, 3, padding=1, bias=False),
-            LIFFeedForwardCell(p=LIFParameters(method=method, alpha=alpha), dt=dt),
+            LIFFeedForwardCell(p=p_lif, dt=dt),
             nn.Conv2d(64, 64, 3, padding=1, bias=False),
-            LIFFeedForwardCell(p=LIFParameters(method=method, alpha=alpha), dt=dt),
-            nn.AvgPool2d(2, stride=2, ceil_mode=True),  # 1/2
+            LIFFeedForwardCell(p=p_lif, dt=dt),
+            nn.AvgPool2d(2, stride=2),  # 1/2
         )
 
         # block 2
         self.block2 = SequentialState(
             nn.Conv2d(64, 128, 3, padding=1, bias=False),
-            LIFFeedForwardCell(p=LIFParameters(method=method, alpha=alpha), dt=dt),
+            LIFFeedForwardCell(p=p_lif, dt=dt),
             nn.Conv2d(128, 128, 3, padding=1, bias=False),
-            LIFFeedForwardCell(p=LIFParameters(method=method, alpha=alpha), dt=dt),
-            nn.AvgPool2d(2, stride=2, ceil_mode=True),  # 1/4
+            LIFFeedForwardCell(p=p_lif, dt=dt),
+            nn.AvgPool2d(2, stride=2),  # 1/4
         )
 
         # block 3
         self.block3 = SequentialState(
             nn.Conv2d(128, 256, 3, padding=1, bias=False),
-            LIFFeedForwardCell(p=LIFParameters(method=method, alpha=alpha), dt=dt),
+            LIFFeedForwardCell(p=p_lif, dt=dt),
             nn.Conv2d(256, 256, 3, padding=1, bias=False),
-            LIFFeedForwardCell(p=LIFParameters(method=method, alpha=alpha), dt=dt),
+            LIFFeedForwardCell(p=p_lif, dt=dt),
             nn.Conv2d(256, 256, 3, padding=1, bias=False),
-            LIFFeedForwardCell(p=LIFParameters(method=method, alpha=alpha), dt=dt),
-            nn.AvgPool2d(2, stride=2, ceil_mode=True),  # 1/8
+            LIFFeedForwardCell(p=p_lif, dt=dt),
+            nn.AvgPool2d(2, stride=2),  # 1/8
         )
 
         # block 4
         self.block4 = SequentialState(
             nn.Conv2d(256, 512, 3, padding=1, bias=False),
-            LIFFeedForwardCell(p=LIFParameters(method=method, alpha=alpha), dt=dt),
+            LIFFeedForwardCell(p=p_lif, dt=dt),
             nn.Conv2d(512, 512, 3, padding=1, bias=False),
-            LIFFeedForwardCell(p=LIFParameters(method=method, alpha=alpha), dt=dt),
+            LIFFeedForwardCell(p=p_lif, dt=dt),
             nn.Conv2d(512, 512, 3, padding=1, bias=False),
-            LIFFeedForwardCell(p=LIFParameters(method=method, alpha=alpha), dt=dt),
-            nn.AvgPool2d(2, stride=2, ceil_mode=True),  # 1/16
+            LIFFeedForwardCell(p=p_lif, dt=dt),
+            nn.AvgPool2d(2, stride=2),  # 1/16
         )
 
         # block 5
         self.block5 = SequentialState(
             nn.Conv2d(512, 512, 3, padding=1, bias=False),
-            LIFFeedForwardCell(p=LIFParameters(method=method, alpha=alpha), dt=dt),
+            LIFFeedForwardCell(p=p_lif, dt=dt),
             nn.Conv2d(512, 512, 3, padding=1, bias=False),
-            LIFFeedForwardCell(p=LIFParameters(method=method, alpha=alpha), dt=dt),
+            LIFFeedForwardCell(p=p_lif, dt=dt),
             nn.Conv2d(512, 512, 3, padding=1, bias=False),
-            LIFFeedForwardCell(p=LIFParameters(method=method, alpha=alpha), dt=dt),
-            nn.AvgPool2d(2, stride=2, ceil_mode=True),  # 1/32
+            LIFFeedForwardCell(p=p_lif, dt=dt),
+            nn.AvgPool2d(2, stride=2),  # 1/32
         )
 
         # dense
         self.dense = SequentialState(
             nn.Conv2d(512, 4096, 7, padding=3, bias=False),
-            LIFFeedForwardCell(p=LIFParameters(method=method, alpha=alpha), dt=dt),
+            LIFFeedForwardCell(p=p_lif, dt=dt),
             #nn.Dropout2d(),
             nn.Conv2d(4096, 4096, 1, bias=False),
-            LIFFeedForwardCell(p=LIFParameters(method=method, alpha=alpha), dt=dt),
+            LIFFeedForwardCell(p=p_lif, dt=dt),
             #nn.Dropout2d(),
         )
 
@@ -96,31 +123,6 @@ class FCN8s(nn.Module):
         self.upscore_2 = nn.ConvTranspose2d(n_class, n_class, 4, stride=2, padding=1, bias=False)
         self.upscore_block4 = nn.ConvTranspose2d(n_class, n_class, 4, stride=2, padding=1, bias=False)
         self.upscore_8 = nn.ConvTranspose2d(n_class, n_class, 16, stride=8, padding=4, bias=False)
-
-
-        p_li = LIParameters(
-
-            # tau_syn_inv=torch.tensor(200.0),
-            # tau_mem_inv=torch.tensor(100.0),
-            # v_leak=torch.tensor(0.0),
-
-            # tau_syn_inv=torch.tensor(100.0),
-            # tau_mem_inv=torch.tensor(50.0),
-            # v_leak=torch.tensor(0.0),
-
-            # tau_syn_inv=torch.tensor(50.0),
-            # tau_mem_inv=torch.tensor(25.0),
-            # v_leak=torch.tensor(0.0),
-
-            # tau_syn_inv=torch.tensor(25.0),
-            # tau_mem_inv=torch.tensor(12.5),
-            # v_leak=torch.tensor(0.0),
-            
-            tau_syn_inv=torch.tensor(12.5),
-            tau_mem_inv=torch.tensor(6.25),
-            v_leak=torch.tensor(0.0),
-
-        ),
 
         self.final = LIFeedForwardCell(p=p_li, dt=dt)
 
@@ -219,7 +221,7 @@ def main():
     width = 256
     void_label = 256
 
-    sim_steps = 30
+    sim_steps = 25
     epochs = 500
     #learn_rate = 1e-4
     learn_rate = 3e-5
