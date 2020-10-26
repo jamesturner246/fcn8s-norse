@@ -97,7 +97,7 @@ class FCN8s(nn.Module):
         self.upscore_8 = nn.ConvTranspose2d(n_class, n_class, 16, stride=8, padding=4, bias=False)
 
         #self.final = LICell(n_class, n_class, dt=dt)
-        self.final = LIFeedForwardCell((n_class, height, width), dt=dt)
+        self.final = LIFeedForwardCell(dt=dt)
         #self.final = LIFFeedForwardCell(p=LIFParameters(method=method, alpha=alpha), dt=dt)
 
 
