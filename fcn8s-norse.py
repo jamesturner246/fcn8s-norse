@@ -10,6 +10,7 @@ import torchvision.transforms as transforms
 from norse.torch.module.sequential import SequentialState
 from norse.torch.functional.lif import LIFParameters
 from norse.torch.module.lif import LIFFeedForwardCell
+from norse.torch.functional.leaky_integrator import LIParameters
 from norse.torch.module.leaky_integrator import LIFeedForwardCell
 from norse.torch.module.leaky_integrator import LICell
 from norse.torch.module.encode import PoissonEncoder
@@ -96,9 +97,32 @@ class FCN8s(nn.Module):
         self.upscore_block4 = nn.ConvTranspose2d(n_class, n_class, 4, stride=2, padding=1, bias=False)
         self.upscore_8 = nn.ConvTranspose2d(n_class, n_class, 16, stride=8, padding=4, bias=False)
 
-        #self.final = LICell(n_class, n_class, dt=dt)
-        self.final = LIFeedForwardCell(dt=dt)
-        #self.final = LIFFeedForwardCell(p=LIFParameters(method=method, alpha=alpha), dt=dt)
+
+        p_li = LIParameters(
+
+            # tau_syn_inv=torch.tensor(200.0),
+            # tau_mem_inv=torch.tensor(100.0),
+            # v_leak=torch.tensor(0.0),
+
+            # tau_syn_inv=torch.tensor(100.0),
+            # tau_mem_inv=torch.tensor(50.0),
+            # v_leak=torch.tensor(0.0),
+
+            # tau_syn_inv=torch.tensor(50.0),
+            # tau_mem_inv=torch.tensor(25.0),
+            # v_leak=torch.tensor(0.0),
+
+            # tau_syn_inv=torch.tensor(25.0),
+            # tau_mem_inv=torch.tensor(12.5),
+            # v_leak=torch.tensor(0.0),
+            
+            tau_syn_inv=torch.tensor(12.5),
+            tau_mem_inv=torch.tensor(6.25),
+            v_leak=torch.tensor(0.0),
+
+        ),
+
+        self.final = LIFeedForwardCell(p=p_li, dt=dt)
 
 
     def forward(self, x):
@@ -106,15 +130,6 @@ class FCN8s(nn.Module):
         state_block1 = state_block2 = state_block3 = state_block4 = state_block5 = state_dense = state_final = None
 
         for ts in range(len(x)):
-
-            #inp = x[ts]
-            #print(inp.shape)
-            #print(inp[inp > 0].shape)
-            #print(inp[0].unique())
-            #print(inp[0])
-            #print(inp[0][inp[0] > 0])
-            #print(inp[0][inp[0].isnan() + inp[0].isinf()])
-
 
             out_block1, state_block1 = self.block1(x[ts], state_block1)  # 1/2
             out_block2, state_block2 = self.block2(out_block1, state_block2)  # 1/4
@@ -169,7 +184,6 @@ class FCN8s(nn.Module):
 
 
         return out_final
-        #return state_final.v
 
 
 class VOCSegmentationNew(torchvision.datasets.VOCSegmentation):
@@ -205,7 +219,7 @@ def main():
     width = 256
     void_label = 256
 
-    sim_steps = 20
+    sim_steps = 30
     epochs = 500
     #learn_rate = 1e-4
     learn_rate = 3e-5
