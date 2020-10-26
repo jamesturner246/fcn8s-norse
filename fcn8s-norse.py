@@ -256,7 +256,7 @@ def main():
     encoder = PoissonEncoder(sim_steps, f_max=f_max, dt=dt)
     model = FCN8s(n_class, height, width, dt=dt).to(dev)
     optimiser = torch.optim.Adam(model.parameters(), lr=learn_rate)
-    loss_fn = torch.nn.CrossEntropyLoss(weights=y_weights, ignore_index=void_label)
+    loss_fn = torch.nn.CrossEntropyLoss(weight=y_weights, ignore_index=void_label)
 
     for epoch in range(epochs):
 
