@@ -17,7 +17,7 @@ import pytorch_lightning as pl
 
 class FCN8s(pl.LightningModule):
 
-    def __init__(self, n_class, height, width, timesteps, encoder, dt=0.001, method='super', alpha=100.0):
+    def __init__(self, n_class, height, width, timesteps, encoder, loss_fn, dt=0.001, method='super', alpha=100.0):
         super(FCN8s, self).__init__()
         self.n_class = n_class
         self.height = height
@@ -26,7 +26,8 @@ class FCN8s(pl.LightningModule):
         self.method = method
         self.alpha = alpha
         self.timesteps = timesteps
-        self.encoder = encoder(1, dt=dt) # Use single steps for each image encoding to reduce memory overhead
+        self.encoder = encoder
+        self.loss_fn = loss_fn
 
         # block 1
         self.block1 = SequentialState(
@@ -34,6 +35,7 @@ class FCN8s(pl.LightningModule):
             LIFFeedForwardCell(p=LIFParameters(method=method, alpha=alpha), dt=dt),
             nn.Conv2d(64, 64, 3, padding=1, bias=False),
             LIFFeedForwardCell(p=LIFParameters(method=method, alpha=alpha), dt=dt),
+            nn.BatchNorm2d(64),
             nn.AvgPool2d(2, stride=2, ceil_mode=True),  # 1/2
         )
 
@@ -43,6 +45,7 @@ class FCN8s(pl.LightningModule):
             LIFFeedForwardCell(p=LIFParameters(method=method, alpha=alpha), dt=dt),
             nn.Conv2d(128, 128, 3, padding=1, bias=False),
             LIFFeedForwardCell(p=LIFParameters(method=method, alpha=alpha), dt=dt),
+            nn.BatchNorm2d(128),
             nn.AvgPool2d(2, stride=2, ceil_mode=True),  # 1/4
         )
 
@@ -54,6 +57,7 @@ class FCN8s(pl.LightningModule):
             LIFFeedForwardCell(p=LIFParameters(method=method, alpha=alpha), dt=dt),
             nn.Conv2d(256, 256, 3, padding=1, bias=False),
             LIFFeedForwardCell(p=LIFParameters(method=method, alpha=alpha), dt=dt),
+            nn.BatchNorm2d(256),
             nn.AvgPool2d(2, stride=2, ceil_mode=True),  # 1/8
         )
 
@@ -65,6 +69,7 @@ class FCN8s(pl.LightningModule):
             LIFFeedForwardCell(p=LIFParameters(method=method, alpha=alpha), dt=dt),
             nn.Conv2d(512, 512, 3, padding=1, bias=False),
             LIFFeedForwardCell(p=LIFParameters(method=method, alpha=alpha), dt=dt),
+            nn.BatchNorm2d(512),
             nn.AvgPool2d(2, stride=2, ceil_mode=True),  # 1/16
         )
 
@@ -76,22 +81,24 @@ class FCN8s(pl.LightningModule):
             LIFFeedForwardCell(p=LIFParameters(method=method, alpha=alpha), dt=dt),
             nn.Conv2d(512, 512, 3, padding=1, bias=False),
             LIFFeedForwardCell(p=LIFParameters(method=method, alpha=alpha), dt=dt),
+            nn.BatchNorm2d(512),
             nn.AvgPool2d(2, stride=2, ceil_mode=True),  # 1/32
         )
 
         # dense
         self.dense = SequentialState(
-            nn.Conv2d(512, 4096, 7, padding=3, bias=False),
+            nn.Conv2d(512, 1024, 7, padding=3, bias=False),
             LIFFeedForwardCell(p=LIFParameters(method=method, alpha=alpha), dt=dt),
             #nn.Dropout2d(),
-            nn.Conv2d(4096, 4096, 1, bias=False),
+            nn.Conv2d(1024, 1024, 1, bias=False),
             LIFFeedForwardCell(p=LIFParameters(method=method, alpha=alpha), dt=dt),
+            nn.BatchNorm2d(1024),
             #nn.Dropout2d(),
         )
 
         self.score_block3 = nn.Conv2d(256, n_class, 1, bias=False)
         self.score_block4 = nn.Conv2d(512, n_class, 1, bias=False)
-        self.score_dense = nn.Conv2d(4096, n_class, 1, bias=False)
+        self.score_dense = nn.Conv2d(1024, n_class, 1, bias=False)
 
         self.upscore_2 = nn.ConvTranspose2d(n_class, n_class, 4, stride=2, padding=1, bias=False)
         self.upscore_block4 = nn.ConvTranspose2d(n_class, n_class, 4, stride=2, padding=1, bias=False)
@@ -108,17 +115,10 @@ class FCN8s(pl.LightningModule):
 
         state_block1 = state_block2 = state_block3 = state_block4 = state_block5 = state_dense = state_final = None
 
-        outputs = []
         for ts in range(self.timesteps):
             encoded = self.encoder(x).squeeze() # Encode a single timestep and remove that dimension
-            #inp = x[ts]
-            #print(inp.shape)
-            #print(inp[inp > 0].shape)
-            #print(inp[0].unique())
-            #print(inp[0])
-            #print(inp[0][inp[0] > 0])
-            #print(inp[0][inp[0].isnan() + inp[0].isinf()])
 
+            self.log('input_mean', encoded.mean())
             out_block1, state_block1 = self.block1(encoded, state_block1)  # 1/2
             out_block2, state_block2 = self.block2(out_block1, state_block2)  # 1/4
             out_block3, state_block3 = self.block3(out_block2, state_block3)  # 1/8
@@ -126,6 +126,12 @@ class FCN8s(pl.LightningModule):
             out_block5, state_block5 = self.block5(out_block4, state_block5)  # 1/32
             out_dense, state_dense = self.dense(out_block5, state_dense)
 
+            self.log('out_block1_mean', out_block1.mean())
+            self.log('out_block2_mean', out_block2.mean())
+            self.log('out_block3_mean', out_block3.mean())
+            self.log('out_block4_mean', out_block4.mean())
+            self.log('out_block5_mean', out_block5.mean())
+            self.log('out_dense_mean', out_dense.mean())
 
             ####### WITH FEATURE FUSION
             out_score_block3 = self.score_block3(out_block3)  # 1/8
@@ -154,11 +160,12 @@ class FCN8s(pl.LightningModule):
             # print()
 
             out_final, state_final = self.final(out_upscore_8, state_final)
-            outputs.append(out_final)
 
-        return torch.stack(outputs).sum(0) # Sum the time dimension
+        return out_final.squeeze().softmax(1) # Remove time dimension
 
     def training_step(self, batch, batch_idx):
         x, y = batch
         y_pred = self.forward(x)
-        return torch.nn.functional.cross_entropy(y_pred, y)
+        loss = self.loss_fn(y_pred, y)
+        self.log('loss', loss)
+        return loss
