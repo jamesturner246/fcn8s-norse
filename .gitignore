@@ -2,3 +2,4 @@ __pycache__/
 voc11seg
 *.ipynb
 .vscode
+lightning_logs
