@@ -15,8 +15,8 @@ class VOCSegmentationNew(torchvision.datasets.VOCSegmentation):
 
     def __getitem__(self, i):
         data, labels = super(VOCSegmentationNew, self).__getitem__(i)
-        labels = (labels * 256).long()
-        return data, labels.squeeze()
+        # labels = (labels * 256).long()
+        return data, labels.squeeze().long()
 
 
 def compare(y_pred, y, void_label):
