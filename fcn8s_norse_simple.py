@@ -46,8 +46,8 @@ class FCN8s(pl.LightningModule):
         self.block1 = SequentialState(
             nn.Conv2d(3, 64, 3, padding=1, bias=False),
             LIFFeedForwardCell(p=LIFParameters(method=method, alpha=alpha), dt=dt),
-            nn.Conv2d(64, 64, 3, padding=1, bias=False),
-            LIFFeedForwardCell(p=LIFParameters(method=method, alpha=alpha), dt=dt),
+            # nn.Conv2d(64, 64, 3, padding=1, bias=False),
+            # LIFFeedForwardCell(p=LIFParameters(method=method, alpha=alpha), dt=dt),
             nn.BatchNorm2d(64),
             nn.AvgPool2d(2, stride=2, ceil_mode=True),  # 1/2
         )
@@ -56,8 +56,8 @@ class FCN8s(pl.LightningModule):
         self.block2 = SequentialState(
             nn.Conv2d(64, 128, 3, padding=1, bias=False),
             LIFFeedForwardCell(p=LIFParameters(method=method, alpha=alpha), dt=dt),
-            nn.Conv2d(128, 128, 3, padding=1, bias=False),
-            LIFFeedForwardCell(p=LIFParameters(method=method, alpha=alpha), dt=dt),
+            # nn.Conv2d(128, 128, 3, padding=1, bias=False),
+            # LIFFeedForwardCell(p=LIFParameters(method=method, alpha=alpha), dt=dt),
             nn.BatchNorm2d(128),
             nn.AvgPool2d(2, stride=2, ceil_mode=True),  # 1/4
         )
@@ -66,32 +66,21 @@ class FCN8s(pl.LightningModule):
         self.block3 = SequentialState(
             nn.Conv2d(128, 256, 3, padding=1, bias=False),
             LIFFeedForwardCell(p=LIFParameters(method=method, alpha=alpha), dt=dt),
-            nn.Conv2d(256, 256, 3, padding=1, bias=False),
-            LIFFeedForwardCell(p=LIFParameters(method=method, alpha=alpha), dt=dt),
-            nn.Conv2d(256, 256, 3, padding=1, bias=False),
-            LIFFeedForwardCell(p=LIFParameters(method=method, alpha=alpha), dt=dt),
-            nn.BatchNorm2d(256),
+            # nn.Conv2d(256, 256, 3, padding=1, bias=False),
+            # LIFFeedForwardCell(p=LIFParameters(method=method, alpha=alpha), dt=dt),
             nn.AvgPool2d(2, stride=2, ceil_mode=True),  # 1/8
+            nn.BatchNorm2d(256),
         )
 
         # block 4
         self.block4 = SequentialState(
             nn.Conv2d(256, 512, 3, padding=1, bias=False),
             LIFFeedForwardCell(p=LIFParameters(method=method, alpha=alpha), dt=dt),
-            nn.Conv2d(512, 512, 3, padding=1, bias=False),
-            LIFFeedForwardCell(p=LIFParameters(method=method, alpha=alpha), dt=dt),
-            nn.Conv2d(512, 512, 3, padding=1, bias=False),
-            LIFFeedForwardCell(p=LIFParameters(method=method, alpha=alpha), dt=dt),
             nn.BatchNorm2d(512),
             nn.AvgPool2d(2, stride=2, ceil_mode=True),  # 1/16
         )
 
-        # block 5
         self.block5 = SequentialState(
-            nn.Conv2d(512, 512, 3, padding=1, bias=False),
-            LIFFeedForwardCell(p=LIFParameters(method=method, alpha=alpha), dt=dt),
-            nn.Conv2d(512, 512, 3, padding=1, bias=False),
-            LIFFeedForwardCell(p=LIFParameters(method=method, alpha=alpha), dt=dt),
             nn.Conv2d(512, 512, 3, padding=1, bias=False),
             LIFFeedForwardCell(p=LIFParameters(method=method, alpha=alpha), dt=dt),
             nn.BatchNorm2d(512),
@@ -116,16 +105,14 @@ class FCN8s(pl.LightningModule):
         self.upscore_2 = nn.ConvTranspose2d(
             n_class, n_class, 4, stride=2, padding=1, bias=False
         )
-        self.upscore_block4 = nn.ConvTranspose2d(
+        self.upscore_4 = nn.ConvTranspose2d(
             n_class, n_class, 4, stride=2, padding=1, bias=False
         )
         self.upscore_8 = nn.ConvTranspose2d(
             n_class, n_class, 16, stride=8, padding=4, bias=False
         )
 
-        # self.final = LICell(n_class, n_class, dt=dt)
         self.final = LIFeedForwardCell(dt=dt)
-        # self.final = LIFFeedForwardCell(p=LIFParameters(method=method, alpha=alpha), dt=dt)
 
     def configure_optimizers(self):
         return torch.optim.Adam(self.parameters(), lr=1e-04)
@@ -164,29 +151,9 @@ class FCN8s(pl.LightningModule):
             out_score_dense = self.score_dense(out_dense)  # 1/32
 
             out_upscore_2 = self.upscore_2(out_score_dense)  # 1/16
-            out_upscore_block4 = self.upscore_block4(
-                out_score_block4 + out_upscore_2
-            )  # 1/8
-            out_upscore_8 = checkpoint(
-                self.upscore_8, out_score_block3 + out_upscore_block4
-            )  # 1/1
+            out_upscore_block4 = self.upscore_4(out_score_block4 + out_upscore_2)  # 1/8
+            out_upscore_8 = self.upscore_8(out_score_block3 + out_upscore_block4)  # 1/1
             #######
-
-            # ####### WITHOUT FEATURE FUSION
-            # out_score_dense = self.score_dense(out_dense)  # 1/32
-
-            # out_upscore_2 = self.upscore_2(out_score_dense)  # 1/16
-            # out_upscore_block4 = self.upscore_block4(out_upscore_2)  # 1/8
-            # out_upscore_8 = self.upscore_8(out_upscore_block4)  # 1/1
-            # #######
-
-            # out = out_dense
-            # print(out[out != 0].shape)
-            # print(out[out.isnan() + out.isinf()].shape)
-            # if (out[out.isnan() + out.isinf()] != 0).any():
-            #     print(out[out.isnan() + out.isinf()])
-            #     print(np.unique(out[out.isnan() + out.isinf()].cpu().detach()))
-            # print()
 
             out_final, state_final = self.final(out_upscore_8, state_final)
 
@@ -194,7 +161,7 @@ class FCN8s(pl.LightningModule):
 
     def training_step(self, batch, batch_idx):
         x, y = batch
-        y_pred = checkpoint(self.forward, x)
+        y_pred = self.forward(x)
         loss = self.loss_fn(y_pred, y)
         self.log("loss", loss)
         return loss
