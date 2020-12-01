@@ -1,3 +1,4 @@
+import numpy as np
 import torch
 import torch.nn as nn
 import pytorch_lightning as pl
@@ -11,13 +12,14 @@ from norse.torch.module.leaky_integrator import LICell
 
 class FCN8sDVS(nn.Module):
 
-    def __init__(self, n_class, height, width, log, 
+    def __init__(self, n_class, height, width, iter_per_frame, log, 
         method="super", alpha=100, dt=0.001):
-        super(FCN8s, self).__init__()
+        super(FCN8sDVS, self).__init__()
         self.n_class = n_class
         self.height = height
         self.width = width
         self.log = log
+        self.iter_per_frame = iter_per_frame
 
         # block 1
         self.block1 = SequentialState(
@@ -102,41 +104,52 @@ class FCN8sDVS(nn.Module):
             state_block3
         ) = state_block4 = state_block5 = state_dense = state_final = None
 
-        for encoded in x:
-            self.log("input_mean", encoded.float().mean())
-            out_block1, state_block1 = self.block1(encoded.float(), state_block1)  # 1/2
-            out_block2, state_block2 = self.block2(out_block1, state_block2)  # 1/4
-            out_block3, state_block3 = self.block3(out_block2, state_block3)  # 1/8
-            out_block4, state_block4 = self.block4(out_block3, state_block4)  # 1/16
-            out_block5, state_block5 = self.block5(out_block4, state_block5)  # 1/32
-            out_dense, state_dense = self.dense(out_block5, state_dense)
+        # output              batch,      class,        frame,      height,     width
+        output = torch.empty((x.shape[0], self.n_class, x.shape[1], x.shape[3], x.shape[4]))
 
-            self.log("out_block1_mean", out_block1.mean())
-            self.log("out_block2_mean", out_block2.mean())
-            self.log("out_block3_mean", out_block3.mean())
-            self.log("out_block4_mean", out_block4.mean())
-            self.log("out_block5_mean", out_block5.mean())
-            self.log("out_dense_mean", out_dense.mean())
+        # for each frame
+        for i in range(x.shape[1]):
+            frame = x[:, i, :, :, :]
 
-            ####### WITH FEATURE FUSION
-            out_score_block3 = self.score_block3(out_block3)  # 1/8
-            out_score_block4 = self.score_block4(out_block4)  # 1/16
-            out_score_dense = self.score_dense(out_dense)  # 1/32
+            for j in range(self.iter_per_frame):
 
-            out_upscore_2 = self.upscore_2(out_score_dense)  # 1/16
-            out_upscore_block4 = self.upscore_4(out_score_block4 + out_upscore_2)  # 1/8
-            out_upscore_8 = self.upscore_8(out_score_block3 + out_upscore_block4)  # 1/1
-            #######
+                self.log("input_mean", frame.float().mean())
+                out_block1, state_block1 = self.block1(frame.float(), state_block1)  # 1/2
+                out_block2, state_block2 = self.block2(out_block1, state_block2)  # 1/4
+                out_block3, state_block3 = self.block3(out_block2, state_block3)  # 1/8
+                out_block4, state_block4 = self.block4(out_block3, state_block4)  # 1/16
+                out_block5, state_block5 = self.block5(out_block4, state_block5)  # 1/32
+                out_dense, state_dense = self.dense(out_block5, state_dense)
 
-            out_final, state_final = self.final(out_upscore_8, state_final)
+                self.log("out_block1_mean", out_block1.mean())
+                self.log("out_block2_mean", out_block2.mean())
+                self.log("out_block3_mean", out_block3.mean())
+                self.log("out_block4_mean", out_block4.mean())
+                self.log("out_block5_mean", out_block5.mean())
+                self.log("out_dense_mean", out_dense.mean())
 
-        return out_final.squeeze()  # Remove time dimension
+                ####### WITH FEATURE FUSION
+                out_score_block3 = self.score_block3(out_block3)  # 1/8
+                out_score_block4 = self.score_block4(out_block4)  # 1/16
+                out_score_dense = self.score_dense(out_dense)  # 1/32
+
+                out_upscore_2 = self.upscore_2(out_score_dense)  # 1/16
+                out_upscore_block4 = self.upscore_4(out_score_block4 + out_upscore_2)  # 1/8
+                out_upscore_8 = self.upscore_8(out_score_block3 + out_upscore_block4)  # 1/1
+                #######
+
+                out_final, state_final = self.final(out_upscore_8, state_final)
+
+            output[:, :, i, :, :] = out_final
+
+        return output
 
 class DVSModel(pl.LightningModule):
     
     def __init__(self):
         super().__init__()
-        self.model = FCN8s(512, 512, 21, log=self.log)
+        iter_per_frame = 1
+        self.model = FCN8sDVS(21, 512, 512, iter_per_frame, log=self.log)
         self.loss_fn = torch.nn.CrossEntropyLoss()#weight=y_weights, ignore_index=void_label)
         
     def forward(self, x):
@@ -146,11 +159,13 @@ class DVSModel(pl.LightningModule):
         # training_step defined the train loop.
         # It is independent of forward
         x, y = batch
-        # Before:  B, T, W, H, C
-        # We need: T, B, C, W, H
-        x = x.permute(1, 0, 4, 2, 3)
-        y = y.permute(1, 0, 2, 3)
+
+        # Before:  B, T, H, W, C
+        # We need: B, T, C, H, W
+        x = x.permute(0, 1, 4, 2, 3)
+
         z = self.forward(x)
+
         loss = self.loss_fn(z, y)
         print(loss)
         return loss
@@ -166,7 +181,8 @@ class DVSNRPDataset(torch.utils.data.Dataset):
         self.data = torch.load(file)
         
     def __getitem__(self, index):
-        return self.data[index]
+        data, labels = self.data[index]
+        return data, labels.astype(np.long)
     
     def __len__(self):
         return len(self.data)
