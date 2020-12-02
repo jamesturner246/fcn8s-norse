@@ -11,16 +11,16 @@ from norse.torch.module.lif import LIFFeedForwardCell
 from norse.torch.module.leaky_integrator import LIFeedForwardCell
 from norse.torch.module.leaky_integrator import LICell
 
-class FCN8sDVS(nn.Module):
 
-    def __init__(self, n_class, height, width, iter_per_frame, log, 
-        method="super", alpha=100, dt=0.001):
-        super(FCN8sDVS, self).__init__()
+class DVSModel(pl.LightningModule):
+
+    def __init__(self, n_class, height, width, iter_per_frame, method="super", alpha=100, dt=0.001):
+        super(DVSModel, self).__init__()
         self.n_class = n_class
         self.height = height
         self.width = width
-        self.log = log
         self.iter_per_frame = iter_per_frame
+        self.loss_fn = torch.nn.CrossEntropyLoss()#weight=y_weights, ignore_index=void_label)
 
         # block 1
         self.block1 = SequentialState(
@@ -94,9 +94,6 @@ class FCN8sDVS(nn.Module):
 
         self.final = LIFeedForwardCell(dt=dt)
 
-    def configure_optimizers(self):
-        return torch.optim.Adam(self.parameters(), lr=1e-04)
-
     def forward(self, x):
 
         state_block1 = (
@@ -144,17 +141,6 @@ class FCN8sDVS(nn.Module):
             output[:, :, i, :, :] = out_final
 
         return output
-
-class DVSModel(pl.LightningModule):
-    
-    def __init__(self):
-        super().__init__()
-        iter_per_frame = 1
-        self.model = FCN8sDVS(22, 512, 512, iter_per_frame, log=self.log)
-        self.loss_fn = torch.nn.CrossEntropyLoss()#weight=y_weights, ignore_index=void_label)
-        
-    def forward(self, x):
-        return self.model(x)
         
     def training_step(self, batch, batch_idx):
         # training_step defined the train loop.
@@ -167,16 +153,12 @@ class DVSModel(pl.LightningModule):
 
         z = self.forward(x)
 
-        # print('x ', x.shape)
-        # print('y ', y.shape)
-        # print('z ', z.shape)
-
-        loss = self.loss_fn(z, y)
+        loss = self.loss_fn(z, y.to('cpu'))
         return loss
-        
+
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.model.parameters(), lr=1e-3)
-        return optimizer
+        return torch.optim.Adam(self.parameters(), lr=1e-03)
+
 
 class DVSNRPDataset(torch.utils.data.Dataset):
     
@@ -194,14 +176,16 @@ class DVSNRPDataset(torch.utils.data.Dataset):
     def __len__(self):
         return len(self.data)
 
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser = pl.Trainer.add_argparse_args(parser)
     args = parser.parse_args()
 
-    train_loader = torch.utils.data.DataLoader(DVSNRPDataset())
+    iter_per_frame = 1
 
-    model = DVSModel()
+    train_loader = torch.utils.data.DataLoader(DVSNRPDataset())
+    model = DVSModel(22, 512, 512, iter_per_frame)
 
     # most basic trainer, uses good defaults (auto-tensorboard, checkpoints, logs, and more)
     # trainer = pl.Trainer(gpus=8) (if you have GPUs)
