@@ -194,11 +194,15 @@ class DVSNRPDataset(torch.utils.data.Dataset):
         return len(self.data)
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser = pl.Trainer.add_argparse_args(parser)
+    args = parser.parse_args()
+
     train_loader = torch.utils.data.DataLoader(DVSNRPDataset())
 
     model = DVSModel()
 
     # most basic trainer, uses good defaults (auto-tensorboard, checkpoints, logs, and more)
     # trainer = pl.Trainer(gpus=8) (if you have GPUs)
-    trainer = pl.Trainer()
+    trainer = pl.Trainer.from_argparse_args(args)
     trainer.fit(model, train_loader)
