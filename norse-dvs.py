@@ -162,16 +162,17 @@ class DVSModel(pl.LightningModule):
 
 class DVSNRPDataset(torch.utils.data.Dataset):
     
-    def __init__(self, file='scenes_60.dat'):
+    def __init__(self, file='scenes_60.dat', skip_frames=30):
         super(DVSNRPDataset, self).__init__()
         self.data = torch.load(file)
+        self.skip_frames = skip_frames
 
         # labels = torch.Tensor([d[1] for d in self.data])
         # print('unique labels: ', torch.unique(labels))
         
-    def __getitem__(self, index, skip_frames=30):
+    def __getitem__(self, index):
         data, labels = self.data[index]
-        return data[skip_frames:], labels[skip_frames:].astype(np.long)
+        return data[self.skip_frames:], labels[self.skip_frames:].astype(np.long)
     
     def __len__(self):
         return len(self.data)
@@ -179,12 +180,14 @@ class DVSNRPDataset(torch.utils.data.Dataset):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
+    parser.add_argument('--skip', default=0, type=int)
     parser = pl.Trainer.add_argparse_args(parser)
     args = parser.parse_args()
 
     iter_per_frame = 1
 
-    train_loader = torch.utils.data.DataLoader(DVSNRPDataset())
+    dataset = DVSNRPDataset(skip_frames=args.skip)
+    train_loader = torch.utils.data.DataLoader(dataset)
     model = DVSModel(22, 512, 512, iter_per_frame)
 
     # most basic trainer, uses good defaults (auto-tensorboard, checkpoints, logs, and more)
