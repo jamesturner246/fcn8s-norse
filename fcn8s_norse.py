@@ -11,6 +11,7 @@ from torch.utils.checkpoint import checkpoint
 from norse.torch.module.sequential import SequentialState
 from norse.torch.functional.lif import LIFParameters
 from norse.torch.module.lif import LIFFeedForwardCell
+from norse.torch.functional.leaky_integrator import LIParameters
 from norse.torch.module.leaky_integrator import LIFeedForwardCell
 from norse.torch.module.leaky_integrator import LICell
 
@@ -42,10 +43,40 @@ class FCN8s(pl.LightningModule):
         self.encoder = encoder
         self.loss_fn = loss_fn
 
+        p_lif = LIFParameters(
+
+            # tau_syn_inv=torch.tensor(200.0),
+            # tau_mem_inv=torch.tensor(200.0),
+
+            tau_syn_inv=torch.tensor(12.5),
+            tau_mem_inv=torch.tensor(6.25),
+
+            v_leak=torch.tensor(0.0),
+            v_th=torch.tensor(1.0),
+            v_reset=torch.tensor(0.0),
+
+            method = 'super',
+            #alpha = 0.0,
+            alpha = 100.0,
+
+        )
+
+        p_li = LIParameters(
+
+            # tau_syn_inv=torch.tensor(200.0),
+            # tau_mem_inv=torch.tensor(100.0),
+
+            tau_syn_inv=torch.tensor(12.5),
+            tau_mem_inv=torch.tensor(6.25),
+
+            v_leak=torch.tensor(0.0),
+
+        )
+
         # block 1
         self.block1 = SequentialState(
             nn.Conv2d(3, 64, 3, padding=1, bias=False),
-            LIFFeedForwardCell(p=LIFParameters(method=method, alpha=alpha), dt=dt),
+            LIFFeedForwardCell(p=p_lif, dt=dt),
             nn.Conv2d(64, 64, 3, padding=1, bias=False),
             LIFFeedForwardCell(p=LIFParameters(method=method, alpha=alpha), dt=dt),
             nn.BatchNorm2d(64),
@@ -55,7 +86,7 @@ class FCN8s(pl.LightningModule):
         # block 2
         self.block2 = SequentialState(
             nn.Conv2d(64, 128, 3, padding=1, bias=False),
-            LIFFeedForwardCell(p=LIFParameters(method=method, alpha=alpha), dt=dt),
+            LIFFeedForwardCell(p=p_lif, dt=dt),
             nn.Conv2d(128, 128, 3, padding=1, bias=False),
             LIFFeedForwardCell(p=LIFParameters(method=method, alpha=alpha), dt=dt),
             nn.BatchNorm2d(128),
@@ -65,9 +96,9 @@ class FCN8s(pl.LightningModule):
         # block 3
         self.block3 = SequentialState(
             nn.Conv2d(128, 256, 3, padding=1, bias=False),
-            LIFFeedForwardCell(p=LIFParameters(method=method, alpha=alpha), dt=dt),
+            LIFFeedForwardCell(p=p_lif, dt=dt),
             nn.Conv2d(256, 256, 3, padding=1, bias=False),
-            LIFFeedForwardCell(p=LIFParameters(method=method, alpha=alpha), dt=dt),
+            LIFFeedForwardCell(p=p_lif, dt=dt),
             nn.Conv2d(256, 256, 3, padding=1, bias=False),
             LIFFeedForwardCell(p=LIFParameters(method=method, alpha=alpha), dt=dt),
             nn.BatchNorm2d(256),
@@ -77,9 +108,9 @@ class FCN8s(pl.LightningModule):
         # block 4
         self.block4 = SequentialState(
             nn.Conv2d(256, 512, 3, padding=1, bias=False),
-            LIFFeedForwardCell(p=LIFParameters(method=method, alpha=alpha), dt=dt),
+            LIFFeedForwardCell(p=p_lif, dt=dt),
             nn.Conv2d(512, 512, 3, padding=1, bias=False),
-            LIFFeedForwardCell(p=LIFParameters(method=method, alpha=alpha), dt=dt),
+            LIFFeedForwardCell(p=p_lif, dt=dt),
             nn.Conv2d(512, 512, 3, padding=1, bias=False),
             LIFFeedForwardCell(p=LIFParameters(method=method, alpha=alpha), dt=dt),
             nn.BatchNorm2d(512),
@@ -89,9 +120,9 @@ class FCN8s(pl.LightningModule):
         # block 5
         self.block5 = SequentialState(
             nn.Conv2d(512, 512, 3, padding=1, bias=False),
-            LIFFeedForwardCell(p=LIFParameters(method=method, alpha=alpha), dt=dt),
+            LIFFeedForwardCell(p=p_lif, dt=dt),
             nn.Conv2d(512, 512, 3, padding=1, bias=False),
-            LIFFeedForwardCell(p=LIFParameters(method=method, alpha=alpha), dt=dt),
+            LIFFeedForwardCell(p=p_lif, dt=dt),
             nn.Conv2d(512, 512, 3, padding=1, bias=False),
             LIFFeedForwardCell(p=LIFParameters(method=method, alpha=alpha), dt=dt),
             nn.BatchNorm2d(512),

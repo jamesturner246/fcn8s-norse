@@ -23,7 +23,7 @@ class FCN8s(nn.Module):
             nn.ReLU(inplace=True),
             nn.Conv2d(64, 64, 3, padding=1, bias=False),
             nn.ReLU(inplace=True),
-            nn.AvgPool2d(2, stride=2, ceil_mode=True),  # 1/2
+            nn.AvgPool2d(2, stride=2),  # 1/2
         )
 
         # block 2
@@ -32,7 +32,7 @@ class FCN8s(nn.Module):
             nn.ReLU(inplace=True),
             nn.Conv2d(128, 128, 3, padding=1, bias=False),
             nn.ReLU(inplace=True),
-            nn.AvgPool2d(2, stride=2, ceil_mode=True),  # 1/4
+            nn.AvgPool2d(2, stride=2),  # 1/4
         )
 
         # block 3
@@ -43,7 +43,7 @@ class FCN8s(nn.Module):
             nn.ReLU(inplace=True),
             nn.Conv2d(256, 256, 3, padding=1, bias=False),
             nn.ReLU(inplace=True),
-            nn.AvgPool2d(2, stride=2, ceil_mode=True),  # 1/8
+            nn.AvgPool2d(2, stride=2),  # 1/8
         )
 
         # block 4
@@ -54,7 +54,7 @@ class FCN8s(nn.Module):
             nn.ReLU(inplace=True),
             nn.Conv2d(512, 512, 3, padding=1, bias=False),
             nn.ReLU(inplace=True),
-            nn.AvgPool2d(2, stride=2, ceil_mode=True),  # 1/16
+            nn.AvgPool2d(2, stride=2),  # 1/16
         )
 
         # block 5
@@ -65,7 +65,7 @@ class FCN8s(nn.Module):
             nn.ReLU(inplace=True),
             nn.Conv2d(512, 512, 3, padding=1, bias=False),
             nn.ReLU(inplace=True),
-            nn.AvgPool2d(2, stride=2, ceil_mode=True),  # 1/32
+            nn.AvgPool2d(2, stride=2),  # 1/32
         )
 
         # dense
