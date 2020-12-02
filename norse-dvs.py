@@ -187,9 +187,9 @@ class DVSNRPDataset(torch.utils.data.Dataset):
         # labels = torch.Tensor([d[1] for d in self.data])
         # print('unique labels: ', torch.unique(labels))
         
-    def __getitem__(self, index):
+    def __getitem__(self, index, skip_frames=30):
         data, labels = self.data[index]
-        return data, labels.astype(np.long)
+        return data[skip_frames:], labels[skip_frames:].astype(np.long)
     
     def __len__(self):
         return len(self.data)
