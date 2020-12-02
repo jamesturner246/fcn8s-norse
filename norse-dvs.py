@@ -149,7 +149,7 @@ class DVSModel(pl.LightningModule):
     def __init__(self):
         super().__init__()
         iter_per_frame = 1
-        self.model = FCN8sDVS(21, 512, 512, iter_per_frame, log=self.log)
+        self.model = FCN8sDVS(22, 512, 512, iter_per_frame, log=self.log)
         self.loss_fn = torch.nn.CrossEntropyLoss()#weight=y_weights, ignore_index=void_label)
         
     def forward(self, x):
@@ -166,8 +166,11 @@ class DVSModel(pl.LightningModule):
 
         z = self.forward(x)
 
+        # print('x ', x.shape)
+        # print('y ', y.shape)
+        # print('z ', z.shape)
+
         loss = self.loss_fn(z, y)
-        print(loss)
         return loss
         
     def configure_optimizers(self):
@@ -179,6 +182,9 @@ class DVSNRPDataset(torch.utils.data.Dataset):
     def __init__(self, file='scenes_60.dat'):
         super(DVSNRPDataset, self).__init__()
         self.data = torch.load(file)
+
+        # labels = torch.Tensor([d[1] for d in self.data])
+        # print('unique labels: ', torch.unique(labels))
         
     def __getitem__(self, index):
         data, labels = self.data[index]
