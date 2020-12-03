@@ -190,6 +190,7 @@ class DVSNRPDataset(torch.utils.data.Dataset):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
+    parser.add_argument('--skip', default=None, type=int)
     parser = pl.Trainer.add_argparse_args(parser)
     args = parser.parse_args()
 
@@ -198,9 +199,8 @@ if __name__ == "__main__":
     height = 512
     width = 512
     iter_per_frame = 1
-    skip_frames = 30
 
-    dataset = DVSNRPDataset(skip_frames=skip_frames)
+    dataset = DVSNRPDataset(skip_frames=args.skip)
     train_loader = torch.utils.data.DataLoader(
         dataset,
         batch_size=batch_size,
@@ -221,6 +221,5 @@ if __name__ == "__main__":
 
     loss_fn = torch.nn.CrossEntropyLoss(weight=y_weights)
     model = DVSModel(n_class, height, width, iter_per_frame, class_weights=y_weights)
-
     trainer = pl.Trainer.from_argparse_args(args)
     trainer.fit(model, train_loader)
