@@ -14,13 +14,14 @@ from norse.torch.module.leaky_integrator import LICell
 
 class DVSModel(pl.LightningModule):
 
-    def __init__(self, n_class, height, width, iter_per_frame, method="super", alpha=100, dt=0.001):
+    def __init__(self, n_class, height, width, iter_per_frame,
+                 class_weights=None, method="super", alpha=100, dt=0.001):
         super(DVSModel, self).__init__()
         self.n_class = n_class
         self.height = height
         self.width = width
         self.iter_per_frame = iter_per_frame
-        self.loss_fn = torch.nn.CrossEntropyLoss()#weight=y_weights, ignore_index=void_label)
+        self.loss_fn = torch.nn.CrossEntropyLoss(weight=class_weights)
 
         # block 1
         self.block1 = SequentialState(
@@ -107,12 +108,13 @@ class DVSModel(pl.LightningModule):
 
         # for each frame
         for i in range(x.shape[1]):
-            frame = x[:, i, :, :, :]
+            frame = x[:, i, :, :, :].float()
 
             for j in range(self.iter_per_frame):
 
-                self.log("input_mean", frame.float().mean())
-                out_block1, state_block1 = self.block1(frame.float(), state_block1)  # 1/2
+                self.log("input_mean", frame.mean())
+
+                out_block1, state_block1 = self.block1(frame, state_block1)       # 1/2
                 out_block2, state_block2 = self.block2(out_block1, state_block2)  # 1/4
                 out_block3, state_block3 = self.block3(out_block2, state_block3)  # 1/8
                 out_block4, state_block4 = self.block4(out_block3, state_block4)  # 1/16
@@ -151,9 +153,17 @@ class DVSModel(pl.LightningModule):
         # We need: B, T, C, H, W
         x = x.permute(0, 1, 4, 2, 3)
 
+        # lightning moves all tensors to gpu, but we want to compute loss on cpu
+        self.loss_fn.to('cpu')  # move loss class weights back to cpu
+        y = y.to('cpu')         # move labels back to cpu
+
         z = self.forward(x)
 
-        loss = self.loss_fn(z, y.to('cpu'))
+        # print(x.device)
+        # print(y.device)
+        # print(z.device)
+
+        loss = self.loss_fn(z, y)
         return loss
 
     def configure_optimizers(self):
@@ -162,16 +172,17 @@ class DVSModel(pl.LightningModule):
 
 class DVSNRPDataset(torch.utils.data.Dataset):
     
-    def __init__(self, file='scenes_60.dat'):
+    def __init__(self, file='scenes_60.dat', skip_frames=None):
         super(DVSNRPDataset, self).__init__()
         self.data = torch.load(file)
+        self.skip_frames = skip_frames
 
         # labels = torch.Tensor([d[1] for d in self.data])
         # print('unique labels: ', torch.unique(labels))
         
-    def __getitem__(self, index, skip_frames=30):
+    def __getitem__(self, index):
         data, labels = self.data[index]
-        return data[skip_frames:], labels[skip_frames:].astype(np.long)
+        return data[self.skip_frames:], labels[self.skip_frames:].astype(np.long)
     
     def __len__(self):
         return len(self.data)
@@ -182,12 +193,34 @@ if __name__ == "__main__":
     parser = pl.Trainer.add_argparse_args(parser)
     args = parser.parse_args()
 
+    batch_size = 1
+    n_class = 22
+    height = 512
+    width = 512
     iter_per_frame = 1
+    skip_frames = 30
 
-    train_loader = torch.utils.data.DataLoader(DVSNRPDataset())
-    model = DVSModel(22, 512, 512, iter_per_frame)
+    dataset = DVSNRPDataset(skip_frames=skip_frames)
+    train_loader = torch.utils.data.DataLoader(
+        dataset,
+        batch_size=batch_size,
+        shuffle=True,
+        pin_memory=True,
+    )
 
-    # most basic trainer, uses good defaults (auto-tensorboard, checkpoints, logs, and more)
-    # trainer = pl.Trainer(gpus=8) (if you have GPUs)
+    # inverse frequency class weighting
+    y_count = torch.zeros(n_class, dtype=torch.long)
+    for _, y in train_loader:
+        l, c = y.unique(return_counts=True)
+        for label, count in zip(l, c):
+            y_count[label] += count
+    y_weights = torch.true_divide(y_count.sum(), y_count)
+
+    #print(y_count)
+    #print(y_weights)
+
+    loss_fn = torch.nn.CrossEntropyLoss(weight=y_weights)
+    model = DVSModel(n_class, height, width, iter_per_frame, class_weights=y_weights)
+
     trainer = pl.Trainer.from_argparse_args(args)
     trainer.fit(model, train_loader)
