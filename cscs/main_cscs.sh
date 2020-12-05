@@ -2,8 +2,6 @@
 module load daint-gpu
 module load singularity # or singularity/3.6.4-daint
 
-# Download data
-wget https://kth.box.com/shared/static/7upvu4qmg12nu61q7d0hhf16lq34uccj.dat -O scenes_60.dat
-
 # Train model
-python norse-dvs.py --gpus=1
+srun -C gpu --account=course00 singularity pull docker://jegp/cscs:latest
+srun -C gpu --account=course00 singularity exec jegp_cscs_latest

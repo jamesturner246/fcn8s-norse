@@ -3,3 +3,5 @@ voc11seg
 *.ipynb
 .vscode
 lightning_logs
+*.dat
+*.sif

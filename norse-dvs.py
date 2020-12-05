@@ -14,7 +14,7 @@ from norse.torch.module.leaky_integrator import LICell
 
 class DVSModel(pl.LightningModule):
 
-    def __init__(self, n_class, height, width, iter_per_frame, method="super", alpha=100, dt=0.001):
+    def __init__(self, n_class, n_channels, height, width, iter_per_frame, method="super", alpha=100, dt=0.001):
         super(DVSModel, self).__init__()
         self.n_class = n_class
         self.height = height
@@ -24,7 +24,7 @@ class DVSModel(pl.LightningModule):
 
         # block 1
         self.block1 = SequentialState(
-            nn.Conv2d(3, 64, 3, padding=1, bias=False),
+            nn.Conv2d(n_channels, 64, 3, padding=1, bias=False),
             LIFFeedForwardCell(p=LIFParameters(method=method, alpha=alpha), dt=dt),
             # nn.Conv2d(64, 64, 3, padding=1, bias=False),
             # LIFFeedForwardCell(p=LIFParameters(method=method, alpha=alpha), dt=dt),
@@ -188,7 +188,7 @@ if __name__ == "__main__":
 
     dataset = DVSNRPDataset(skip_frames=args.skip)
     train_loader = torch.utils.data.DataLoader(dataset)
-    model = DVSModel(22, 512, 512, iter_per_frame)
+    model = DVSModel(8, 2, 512, 512, iter_per_frame)
 
     # most basic trainer, uses good defaults (auto-tensorboard, checkpoints, logs, and more)
     # trainer = pl.Trainer(gpus=8) (if you have GPUs)

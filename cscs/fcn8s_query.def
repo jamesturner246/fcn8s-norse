@@ -1,0 +1,15 @@
+Bootstrap: docker
+From: nvidia/cuda:11.1-devel
+
+%post
+    apt-get update
+    apt-get install -y git python3-pip
+    pip3 install --upgrade pip
+    pip3 install torch pytorch-lightning git+https://github.com/norse/norse
+
+%files
+    ../norse-dvs.py
+    ../scenes_60.dat
+
+%runscript
+    python3 /fcn8s/norse-dvs.py --gpus=1
