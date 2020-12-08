@@ -2,6 +2,7 @@ import argparse
 import torch
 import torch.nn as nn
 import pytorch_lightning as pl
+import torchvision
 
 import norse
 from norse.torch.module.sequential import SequentialState
@@ -105,23 +106,14 @@ class DVSModel(pl.LightningModule):
         
     def training_step(self, batch, batch_idx):
         # training_step defined the train loop.
-        # It is independent of forward
         x, y = batch
-
-        # Before:  B, T, H, W, C
-        # We need: B, T, C, H, W
-        x = x.permute(0, 1, 4, 2, 3)
-
         z = self.forward(x)
-
-        # # compute loss on cpu
-        # self.loss_fn.to('cpu')
-        # y = y.to('cpu')
-
         # or compute loss on gpu
         z = z.to('cuda')
 
         loss = self.loss_fn(z, y)
+        # Log the loss
+        self.log('my_loss', loss, on_step=True, on_epoch=True, prog_bar=True)
         return loss
 
     def configure_optimizers(self):
@@ -130,19 +122,29 @@ class DVSModel(pl.LightningModule):
 
 class DVSNRPDataset(torch.utils.data.Dataset):
     
-    def __init__(self, file='scenes_60.dat', skip_frames=None):
+    def __init__(self, file='scenes_60.dat', skip_frames=None, scale_factor=1):
         super(DVSNRPDataset, self).__init__()
         self.data = torch.load(file)
         self.skip_frames = skip_frames
-
-        # labels = torch.tensor([d[1] for d in self.data])
-        # print('unique labels: ', torch.unique(labels))
+        self.scale_factor = scale_factor
         
     def __getitem__(self, index):
         data, labels = self.data[index]
         data = torch.tensor(data[self.skip_frames:])
-        labels = torch.tensor(labels[self.skip_frames:], dtype=torch.long)
-        return data, labels
+        labels = torch.tensor(labels[self.skip_frames:])
+        return self.scale(data), self.scale(labels).long()
+
+    def scale(self, data):
+        is_label = len(data.shape) < 4
+        # We need to re-size the data to prepare interpolation
+        if is_label: # Labels
+            image = data.view(1, *data.shape)
+        else:                   # Inputs
+            # Before:  H, W, C
+            # We need: C, H, W
+            image = data.view(*data.shape).permute(0, 3, 1, 2).float()
+        scaled = torch.nn.functional.interpolate(image, scale_factor=self.scale_factor)
+        return (scaled.view(*scaled.shape[1:]) if is_label else scaled)
     
     def __len__(self):
         return len(self.data)
@@ -155,13 +157,14 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     batch_size = 1
-    n_class = 8
+    n_class = 9
     n_channels = 2
-    height = 512
-    width = 512
+    scale_factor = 0.25
+    height = int(512 * scale_factor)
+    width = int(512 * scale_factor)
     iter_per_frame = 1
 
-    dataset = DVSNRPDataset(skip_frames=args.skip)
+    dataset = DVSNRPDataset(skip_frames=args.skip, scale_factor = scale_factor)
     train_loader = torch.utils.data.DataLoader(
         dataset,
         batch_size=batch_size,
