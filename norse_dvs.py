@@ -24,47 +24,39 @@ class DVSModel(pl.LightningModule):
 
         # block 1
         self.block1 = SequentialState(
-            nn.Conv2d(n_channels, 64, 3, padding=1, bias=False),
+            nn.Conv2d(n_channels, 32, 3, padding=1, bias=False),
             LIFFeedForwardCell(p=LIFParameters(method=method, alpha=alpha), dt=dt),
             nn.AvgPool2d(2, stride=2, ceil_mode=True),  # 1/2
-            nn.BatchNorm2d(64),
+            nn.BatchNorm2d(32),
         )
 
         # block 2
         self.block2 = SequentialState(
-            nn.Conv2d(64, 128, 3, padding=1, bias=False),
+            nn.Conv2d(32, 64, 3, padding=1, bias=False),
             LIFFeedForwardCell(p=LIFParameters(method=method, alpha=alpha), dt=dt),
             nn.AvgPool2d(2, stride=2, ceil_mode=True),  # 1/4
-            nn.BatchNorm2d(128),
-        )
-
-        # block 3
-        self.block3 = SequentialState(
-            nn.Conv2d(128, 256, 3, padding=1, bias=False),
-            LIFFeedForwardCell(p=LIFParameters(method=method, alpha=alpha), dt=dt),
-            nn.AvgPool2d(2, stride=2, ceil_mode=True),  # 1/8
-            nn.BatchNorm2d(256),
+            nn.BatchNorm2d(64),
         )
 
         # dense
         self.dense = SequentialState(
-            nn.Conv2d(256, 512, 7, padding=3, bias=False),
+            nn.Conv2d(64, 128, 7, padding=3, bias=False),
             LIFFeedForwardCell(p=LIFParameters(method=method, alpha=alpha), dt=dt),
-            nn.Conv2d(512, 512, 1, bias=False),
+            nn.Conv2d(128, 128, 1, bias=False),
             LIFFeedForwardCell(p=LIFParameters(method=method, alpha=alpha), dt=dt),
-            nn.BatchNorm2d(512),
+            nn.BatchNorm2d(128),
         )
 
-        self.score_block2 = nn.Conv2d(128, n_class, 1, bias=False)
-        self.deconv_block2 = nn.ConvTranspose2d(n_class, n_class, 8, stride=4, padding=2, bias=False)
+        # self.score_block2 = nn.Conv2d(32, n_class, 1, bias=False)
+        # self.deconv_block2 = nn.ConvTranspose2d(n_class, n_class, 8, stride=4, padding=2, bias=False)
 
-        self.score_dense = nn.Conv2d(512, n_class, 1, bias=False)
-        self.deconv_dense = nn.ConvTranspose2d(n_class, n_class, 16, stride=8, padding=4, bias=False)
+        self.score_dense = nn.Conv2d(128, n_class, 1, bias=False)
+        self.deconv_dense = nn.ConvTranspose2d(n_class, n_class, 8, stride=4, padding=2, bias=False)
 
         self.final = LIFeedForwardCell(dt=dt)
 
     def forward(self, x):
-        state_block1 = state_block2 = state_block3 = state_dense = state_final = None
+        state_block1 = state_block2 = state_dense = state_final = None
         x = x.float()
 
         # output              batch,      class,        frame,      height,     width
@@ -80,22 +72,21 @@ class DVSModel(pl.LightningModule):
 
                 out_block1, state_block1 = self.block1(frame, state_block1)       # 1/2
                 out_block2, state_block2 = self.block2(out_block1, state_block2)  # 1/4
-                out_block3, state_block3 = self.block3(out_block2, state_block3)  # 1/8
-                out_dense, state_dense = self.dense(out_block3, state_dense)
+                out_dense, state_dense = self.dense(out_block2, state_dense)
 
                 self.log("out_block1_mean", out_block1.mean())
                 self.log("out_block2_mean", out_block2.mean())
-                self.log("out_block3_mean", out_block3.mean())
                 self.log("out_dense_mean", out_dense.mean())
 
                 ####### WITH FEATURE FUSION
-                out_score_block2 = self.score_block2(out_block2)
-                out_deconv_block2 = self.deconv_block2(out_score_block2)
+                # out_score_block2 = self.score_block2(out_block2)
+                # out_deconv_block2 = self.deconv_block2(out_score_block2)
 
                 out_score_dense = self.score_dense(out_dense)
                 out_deconv_dense = self.deconv_dense(out_score_dense)
 
-                out_deconv = out_deconv_block2 + out_deconv_dense
+                #out_deconv = out_deconv_block2 + out_deconv_dense
+                out_deconv = out_deconv_dense
                 #######
 
                 out_final, state_final = self.final(out_deconv, state_final)
