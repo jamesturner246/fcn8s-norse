@@ -1,5 +1,10 @@
 __pycache__/
+.ipynb_checkpoints/
 voc11seg
-*.ipynb
 .vscode
 lightning_logs
+*.dat
+*.sif
+*.zip
+*.mp4
+*.ckpt
