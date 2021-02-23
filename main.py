@@ -7,13 +7,6 @@ import pytorch_lightning as pl
 import torchvision
 import tqdm
 
-import norse
-from norse.torch.module.sequential import SequentialState
-from norse.torch.functional.lif import LIFParameters
-from norse.torch.module.lif import LIFFeedForwardCell
-from norse.torch.module.leaky_integrator import LIFeedForwardCell
-from norse.torch.module.leaky_integrator import LICell
-
 from dvsdata import DVSNRPDataset
 from models import ann, snn
 
@@ -22,7 +15,7 @@ if __name__ == "__main__":
     parser.add_argument("--root", type=str)
     parser.add_argument("--window-length", default=50, type=int)
     parser.add_argument(
-        "--model", choices=["ann", "full", "simple"], default="full", type=str
+        "--model", choices=["ann", "full", "simple", "simple2"], default="full", type=str
     )
     parser.add_argument(
         "--scale", type=float, default=1, help="Scale the data (512x512) by this factor"
@@ -68,10 +61,12 @@ if __name__ == "__main__":
         y_weights = torch.load(weights_filename)
 
     # Define model
-    if args.model == "simple":
-        model_cls = snn.DVSModelSimple
-    elif args.model == "ann":
+    if args.model == "ann":
         model_cls = ann.DVSModel
+    elif args.model == "simple":
+        model_cls = snn.DVSModelSimple
+    elif args.model == "simple2":
+        model_cls = snn.DVSModelSimple2
     else:
         model_cls = snn.DVSModel
     
