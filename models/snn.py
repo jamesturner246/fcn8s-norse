@@ -280,41 +280,41 @@ class DVSModelSimple2(pl.LightningModule):
 
         # block 1
         self.block1 = SequentialState(
-            nn.Conv2d(n_channels, 16, 3, padding=1, bias=False),
+            nn.Conv2d(n_channels, 8, 3, padding=1, bias=False),
             LIFCell(p=LIFParameters(method=method, alpha=alpha), dt=dt),
             nn.AvgPool2d(2, stride=2, ceil_mode=True),  # 1/2
-            nn.BatchNorm2d(16),
+            nn.BatchNorm2d(8),
         )
 
         # block 2
         self.block2 = SequentialState(
-            nn.Conv2d(16, 32, 3, padding=1, bias=False),
+            nn.Conv2d(8, 16, 3, padding=1, bias=False),
             LIFCell(p=LIFParameters(method=method, alpha=alpha), dt=dt),
             nn.AvgPool2d(2, stride=2, ceil_mode=True),  # 1/4
-            nn.BatchNorm2d(32),
+            nn.BatchNorm2d(16),
         )
 
         # block 3
         self.block3 = SequentialState(
-            nn.Conv2d(32, 64, 3, padding=1, bias=False),
+            nn.Conv2d(16, 32, 3, padding=1, bias=False),
             LIFCell(p=LIFParameters(method=method, alpha=alpha), dt=dt),
             nn.AvgPool2d(2, stride=2, ceil_mode=True),  # 1/8
-            nn.BatchNorm2d(64),
+            nn.BatchNorm2d(32),
         )
 
         # dense
         self.dense = SequentialState(
-            nn.Conv2d(64, 64, 7, padding=3, bias=False),
+            nn.Conv2d(32, 32, 7, padding=3, bias=False),
             LIFCell(p=LIFParameters(method=method, alpha=alpha), dt=dt),
-            nn.BatchNorm2d(64),
+            nn.BatchNorm2d(32),
         )
 
-        self.score_block2 = nn.Conv2d(32, n_class, 1, bias=False)
+        self.score_block2 = nn.Conv2d(16, n_class, 1, bias=False)
         self.deconv_block2 = nn.ConvTranspose2d(
             n_class, n_class, 8, stride=4, padding=2, bias=False
         )
 
-        self.score_dense = nn.Conv2d(64, n_class, 1, bias=False)
+        self.score_dense = nn.Conv2d(32, n_class, 1, bias=False)
         self.deconv_dense = nn.ConvTranspose2d(
             n_class, n_class, 16, stride=8, padding=4, bias=False
         )
